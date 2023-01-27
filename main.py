@@ -4,7 +4,7 @@ import sqlite3
 from datetime import date
 
 import pandas as pd
-from aiohttp import ClientSession
+from aiohttp import ClientSession, TCPConnector
 from bs4 import BeautifulSoup, Tag
 from pandas import DataFrame
 
@@ -102,7 +102,7 @@ class ParserShop:
                         ).execute()
 
     async def start_create(self, session):
-        async with session.get(url) as response:
+        async with session.get(url, ssl=False) as response:
             soup = BeautifulSoup(await response.text(), "lxml")
             all_shop = await self.get_all_shops(soup)
             for shop in all_shop:
@@ -110,11 +110,12 @@ class ParserShop:
                 await self.create_record(shop)
 
     async def start(self, url, create):
-        async with ClientSession(trust_env=True) as session:
+        conn = TCPConnector()
+        async with ClientSession(trust_env=True, connector=conn) as session:
             if create:
                 await self.start_create(session)
                 return
-            async with session.get(url) as response:
+            async with session.get(url, ssl=False) as response:
                 soup = BeautifulSoup(await response.text(), "lxml")
                 all_shop = await self.get_all_shops(soup)
                 for shop in all_shop:
