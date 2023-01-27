@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import sqlite3
 from datetime import date
@@ -130,7 +131,7 @@ def create_google_sheets(df: DataFrame):
               'https://www.googleapis.com/auth/drive']
 
     credentials = Credentials.from_service_account_file(
-        'parserlogshop-07b867c26870.json', scopes=scopes)
+        'creds.json', scopes=scopes)
 
     gc = gspread.authorize(credentials)
 
@@ -139,8 +140,8 @@ def create_google_sheets(df: DataFrame):
 
     # open a google sheet
     gs = gc.open_by_url(
-        "https://docs.google.com/spreadsheets/d/1aRXkg6u4gz6v4_lZHVOGWf4V1M6mwYnv_BpLSUhT1KI/edit#gid=0")  # select a work sheet from its name
-    worksheet1 = gs.worksheet('Лист1')
+        "https://docs.google.com/spreadsheets/d/1A68ixW-IwAOXWtkwLDPC4eyFnWIZPq5AtKioiL2qH1k/edit#gid=0")  # select a work sheet from its name
+    worksheet1 = gs.worksheet('Sheet1')
     worksheet1.clear()
     from gspread_dataframe import set_with_dataframe
     set_with_dataframe(worksheet=worksheet1, dataframe=df, include_index=False,
@@ -148,10 +149,18 @@ def create_google_sheets(df: DataFrame):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Парсер сайта магазинов',
+                                     formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('-c', '--create', type=bool)
+    args = parser.parse_args()
+    if not args.create:
+        args.create = False
+    else:
+        args.create = True
     url = 'https://lequeshop.com/goods/facebook'
     loop = asyncio.get_event_loop()
     parser = ParserShop()
-    loop.run_until_complete(parser.start(url, False))
+    loop.run_until_complete(parser.start(url, args.create))
     con = sqlite3.connect("parser.db")
     data = pd.read_sql_query("SELECT shop, name_position, sold_count, date from parser", con)
     create_google_sheets(data)
