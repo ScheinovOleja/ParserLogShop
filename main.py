@@ -110,7 +110,7 @@ class ParserShop:
                 await self.create_record(shop)
 
     async def start(self, url, create):
-        async with ClientSession() as session:
+        async with ClientSession(trust_env=True) as session:
             if create:
                 await self.start_create(session)
                 return
