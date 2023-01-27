@@ -110,7 +110,7 @@ class ParserShop:
                 await self.create_record(shop)
 
     async def start(self, url, create):
-        conn = TCPConnector()
+        conn = TCPConnector(limit_per_host=10)
         async with ClientSession(trust_env=True, connector=conn) as session:
             if create:
                 await self.start_create(session)
