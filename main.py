@@ -152,16 +152,18 @@ def create_google_sheets(df: DataFrame):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Парсер сайта магазинов',
                                      formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-c', '--create', type=bool)
+    parser.add_argument('-c', '--create', type=str)
     args = parser.parse_args()
-    if not args.create:
-        args.create = False
+    if args.create.lower() == 'true':
+        create = True
+    elif args.create.lower() == 'false':
+        create = False
     else:
-        args.create = True
+        create = False
     url = 'https://lequeshop.com/goods/facebook'
     loop = asyncio.get_event_loop()
     parser = ParserShop()
-    loop.run_until_complete(parser.start(url, args.create))
+    loop.run_until_complete(parser.start(url, create))
     con = sqlite3.connect("parser.db")
     data = pd.read_sql_query("SELECT shop, name_position, sold_count, date from parser", con)
     create_google_sheets(data)
