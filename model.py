@@ -1,6 +1,6 @@
 from datetime import date
 
-from peewee import SqliteDatabase, Model, IntegerField, CharField, DateField
+from peewee import SqliteDatabase, Model, IntegerField, CharField, DateField, FloatField
 
 sqlite_db = SqliteDatabase('parser.db')
 
@@ -16,5 +16,6 @@ class Parser(BaseModel):
     shop = CharField(max_length=64)
     name_position = CharField(max_length=255)
     sold_count = IntegerField(default=0)
+    price = FloatField(default=0.0)
     past_value_accounts = IntegerField()
     date = DateField(default=date.today())
