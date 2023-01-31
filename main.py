@@ -174,5 +174,5 @@ if __name__ == "__main__":
     parser = ParserShop()
     loop.run_until_complete(parser.start(url, create))
     con = sqlite3.connect("parser.db")
-    data = pd.read_sql_query("SELECT shop, name_position, sold_count, price, date from parser", con)
+    data = pd.read_sql_query("SELECT p.shop, p.name_position, p.sold_count, p.price, date from parser as p", con)
     create_google_sheets(data)
