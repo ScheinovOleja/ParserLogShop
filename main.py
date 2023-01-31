@@ -3,10 +3,14 @@ import asyncio
 import sqlite3
 from datetime import date
 
+import gspread
 import pandas as pd
 from aiohttp import ClientSession, TCPConnector
 from bs4 import BeautifulSoup, Tag
+from google.oauth2.service_account import Credentials
 from pandas import DataFrame
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
 
 from model import Parser
 
@@ -35,35 +39,41 @@ class ParserShop:
                                                                                                        '').replace('\t',
                                                                                                                    '')
             count = int(position.select('td')[1].text)
-            yield name_position, count
+            price = float(position.select_one('span.wowlight').text)
+            yield name_position, count, price
 
     async def create_record(self, shop: Tag):
-        async for name, count in self.iterator_positions(shop):
+        async for name, count, price in self.iterator_positions(shop):
             Parser.create(
                 shop=self.shop,
                 name_position=name,
                 past_value_accounts=count,
+                price=price
             )
 
     async def get_all_data(self, shop: Tag):
-        async for name, count in self.iterator_positions(shop):
+        async for name, count, price in self.iterator_positions(shop):
             new_data = Parser.select().where(Parser.shop == self.shop, Parser.name_position == name,
                                              Parser.date == date.today())[:]
             if len(new_data) == 1:
                 if count < new_data[0].past_value_accounts:
                     Parser.update(
                         **{"sold_count": new_data[0].sold_count + (new_data[0].past_value_accounts - count),
-                           "past_value_accounts": count}
+                           "past_value_accounts": count,
+                           "price": price}
                     ).where(
                         Parser.shop == self.shop,
-                        Parser.name_position == name
+                        Parser.name_position == name,
+                        Parser.date == date.today()
                     ).execute()
                 elif count > new_data[0].past_value_accounts:
                     Parser.update(
-                        **{"past_value_accounts": count}
+                        **{"past_value_accounts": count,
+                           "price": price}
                     ).where(
                         Parser.shop == self.shop,
-                        Parser.name_position == name
+                        Parser.name_position == name,
+                        Parser.date == date.today()
                     ).execute()
                 else:
                     continue
@@ -72,33 +82,41 @@ class ParserShop:
                     if count < new_data[1].past_value_accounts:
                         Parser.update(
                             **{"sold_count": new_data[1].sold_count + (new_data[1].past_value_accounts - count),
-                               "past_value_accounts": count}
+                               "past_value_accounts": count,
+                               "price": price}
                         ).where(
                             Parser.shop == self.shop,
-                            Parser.name_position == name
+                            Parser.name_position == name,
+                            Parser.date == date.today()
                         ).execute()
                     elif count > new_data[1].past_value_accounts:
                         Parser.update(
-                            **{"past_value_accounts": count}
+                            **{"past_value_accounts": count,
+                               "price": price}
                         ).where(
                             Parser.shop == self.shop,
-                            Parser.name_position == name
+                            Parser.name_position == name,
+                            Parser.date == date.today()
                         ).execute()
                 elif abs(count - new_data[0].past_value_accounts) < abs(count - new_data[1].past_value_accounts):
                     if count < new_data[0].past_value_accounts:
                         Parser.update(
                             **{"sold_count": new_data[0].sold_count + (new_data[0].past_value_accounts - count),
-                               "past_value_accounts": count}
+                               "past_value_accounts": count,
+                               "price": price}
                         ).where(
                             Parser.shop == self.shop,
-                            Parser.name_position == name
+                            Parser.name_position == name,
+                            Parser.date == date.today()
                         ).execute()
                     elif count > new_data[0].past_value_accounts:
                         Parser.update(
-                            **{"past_value_accounts": count}
+                            **{"past_value_accounts": count,
+                               "price": price}
                         ).where(
                             Parser.shop == self.shop,
-                            Parser.name_position == name
+                            Parser.name_position == name,
+                            Parser.date == date.today()
                         ).execute()
 
     async def start_create(self, session):
@@ -124,22 +142,13 @@ class ParserShop:
 
 
 def create_google_sheets(df: DataFrame):
-    import gspread
-    from google.oauth2.service_account import Credentials
-    from pydrive.auth import GoogleAuth
-    from pydrive.drive import GoogleDrive
     scopes = ['https://www.googleapis.com/auth/spreadsheets',
               'https://www.googleapis.com/auth/drive']
-
     credentials = Credentials.from_service_account_file(
         'creds.json', scopes=scopes)
-
     gc = gspread.authorize(credentials)
-
     gauth = GoogleAuth()
-    drive = GoogleDrive(gauth)
-
-    # open a google sheet
+    GoogleDrive(gauth)
     gs = gc.open_by_url(
         "https://docs.google.com/spreadsheets/d/1A68ixW-IwAOXWtkwLDPC4eyFnWIZPq5AtKioiL2qH1k/edit#gid=0")  # select a work sheet from its name
     worksheet1 = gs.worksheet('Sheet1')
