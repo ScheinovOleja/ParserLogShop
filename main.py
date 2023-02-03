@@ -51,73 +51,38 @@ class ParserShop:
                 price=price
             )
 
+    async def create_entry(self, count, new_data, price, name, index):
+        if count < new_data[index].past_value_accounts:
+            Parser.update(
+                **{"sold_count": new_data[index].sold_count + (new_data[index].past_value_accounts - count),
+                   "past_value_accounts": count,
+                   "price": price}
+            ).where(
+                Parser.shop == self.shop,
+                Parser.name_position == name,
+                Parser.date == date.today()
+            ).execute()
+        elif count > new_data[index].past_value_accounts:
+            Parser.update(
+                **{"past_value_accounts": count,
+                   "price": price}
+            ).where(
+                Parser.shop == self.shop,
+                Parser.name_position == name,
+                Parser.date == date.today()
+            ).execute()
+
     async def get_all_data(self, shop: Tag):
         async for name, count, price in self.iterator_positions(shop):
             new_data = Parser.select().where(Parser.shop == self.shop, Parser.name_position == name,
                                              Parser.date == date.today())[:]
             if len(new_data) == 1:
-                if count < new_data[0].past_value_accounts:
-                    Parser.update(
-                        **{"sold_count": new_data[0].sold_count + (new_data[0].past_value_accounts - count),
-                           "past_value_accounts": count,
-                           "price": price}
-                    ).where(
-                        Parser.shop == self.shop,
-                        Parser.name_position == name,
-                        Parser.date == date.today()
-                    ).execute()
-                elif count > new_data[0].past_value_accounts:
-                    Parser.update(
-                        **{"past_value_accounts": count,
-                           "price": price}
-                    ).where(
-                        Parser.shop == self.shop,
-                        Parser.name_position == name,
-                        Parser.date == date.today()
-                    ).execute()
-                else:
-                    continue
+                await self.create_entry(count, new_data, price, name, 0)
             elif 1 < len(new_data) < 3:
                 if abs(count - new_data[0].past_value_accounts) > abs(count - new_data[1].past_value_accounts):
-                    if count < new_data[1].past_value_accounts:
-                        Parser.update(
-                            **{"sold_count": new_data[1].sold_count + (new_data[1].past_value_accounts - count),
-                               "past_value_accounts": count,
-                               "price": price}
-                        ).where(
-                            Parser.shop == self.shop,
-                            Parser.name_position == name,
-                            Parser.date == date.today()
-                        ).execute()
-                    elif count > new_data[1].past_value_accounts:
-                        Parser.update(
-                            **{"past_value_accounts": count,
-                               "price": price}
-                        ).where(
-                            Parser.shop == self.shop,
-                            Parser.name_position == name,
-                            Parser.date == date.today()
-                        ).execute()
+                    await self.create_entry(count, new_data, price, name, 1)
                 elif abs(count - new_data[0].past_value_accounts) < abs(count - new_data[1].past_value_accounts):
-                    if count < new_data[0].past_value_accounts:
-                        Parser.update(
-                            **{"sold_count": new_data[0].sold_count + (new_data[0].past_value_accounts - count),
-                               "past_value_accounts": count,
-                               "price": price}
-                        ).where(
-                            Parser.shop == self.shop,
-                            Parser.name_position == name,
-                            Parser.date == date.today()
-                        ).execute()
-                    elif count > new_data[0].past_value_accounts:
-                        Parser.update(
-                            **{"past_value_accounts": count,
-                               "price": price}
-                        ).where(
-                            Parser.shop == self.shop,
-                            Parser.name_position == name,
-                            Parser.date == date.today()
-                        ).execute()
+                    await self.create_entry(count, new_data, price, name, 0)
 
     async def start_create(self, session):
         async with session.get(url, ssl=False) as response:
@@ -174,5 +139,6 @@ if __name__ == "__main__":
     parser = ParserShop()
     loop.run_until_complete(parser.start(url, create))
     con = sqlite3.connect("parser.db")
-    data = pd.read_sql_query("SELECT p.shop, p.name_position, p.sold_count, p.price, date from parser as p;", con)
+    data = pd.read_sql_query(
+        "SELECT p.shop, p.name_position, p.sold_count, p.price, date from parser as p ORDER BY sold_count desc;", con)
     create_google_sheets(data)
